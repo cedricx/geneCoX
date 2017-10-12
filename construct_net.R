@@ -1,7 +1,7 @@
 library(WGCNA)
 library(RJSONIO)
 setwd('~/Google Drive/GraduateSchool/Courses/BE566/Project1/')
-source('./WGCNA/ABI_functions.R')
+source('../code/ABI_functions.R')
 
 ##################################
 ######## PreProcess Data #########
@@ -16,8 +16,8 @@ for (donor in donor_list){
 ##################################
 ####### Compile Gene List ########
 ##################################
-nature108genes <- read.csv ('~/Google Drive/GraduateSchool/Courses/BE566/Project1/nature108genes.csv')
-genes0 <- unlist(nature108genes[,6:31])
+nature108loci <- read.csv ('~/Google Drive/GraduateSchool/Courses/BE566/Project1/nature108genes.csv')
+genes0 <- unlist(nature108loci[,6:31])
 genes <- as.character(unname(genes0[-which(genes0 =="")]))
 
 gene_incl_idx <- which(genes %in% probeInfo$gene_symbol)
@@ -28,18 +28,18 @@ write.csv(gene_out,file = './gene_out.csv')
 gene_out_dict <- read.csv('./gene_out_dictionary.csv')
 genes_trans <- genes #translated
 genes_trans[genes %in% as.character(gene_out_dict$nature)] <- as.character(gene_out_dict$ALAN)
-genes335 <- unname(genes_trans[-which(genes_trans =="")])
+genes_final <- unique(unname(genes_trans[-which(genes_trans =="")]))
 
-save(genes335,file = './gene_list_335.RData')
+save(genes_final,file = './gene_list_final.RData')
 
 ##############################################
 ##### Load and Compile PreprocessedData ######
 ##############################################
-load('./gene_list_335.RData')
+load('./gene_list_final.RData')
 genes_donor = NULL
 for (donor in donor_list) {
   load(paste("./ABI/",donor,".RData",sep = ""))
-  datExprIn <- datExpr[genes335,]
+  datExprIn <- datExpr[genes_final,]
   colnames(datExprIn) <- sampleInfo$structure_id
   genes_donor[[donor]] = list(donor = donor, exp = datExprIn, info = sampleInfo)
 }
@@ -56,27 +56,43 @@ for (donor in donor_list){
   genes_all <- cbind(genes_all,genes_donor[[donor]]$exp)
 }
 
-gene_coex_wb <- make_coex_graph(genes335,genes_all,"pearson")
+gene_coex_wb <- make_coex_graph(genes_final,genes_all,"pearson")
   
 wb_heat <- heatmap(gene_coex_wb)
 p.gene_coex_wb<-levelplot(gene_coex_wb[wb_heat$rowInd,wb_heat$rowInd],par.settings = BuRdTheme(),
           xlab = "", ylab = "", main = "SCZ 335",
-          scales=list(x=list(at=1:length(genes335),labels=genes335[wb_heat$rowInd],rot=90, tck = 0, cex =0.2),
-                      y=list(at=1:length(genes335),labels=genes335[wb_heat$rowInd], tck = 0,cex =0.2)))
+          scales=list(x=list(at=1:length(genes_final),labels=genes_final[wb_heat$rowInd],rot=90, tck = 0, cex =0.2),
+                      y=list(at=1:length(genes_final),labels=genes_final[wb_heat$rowInd], tck = 0,cex =0.2)))
 
-save(genes335,gene_coex_wb,p.gene_coex_wb,wb_heat,file = './whole_brain.RData')
-genes335.ro <-genes335[wb_heat$rowInd]
-writeMat('./whole_brain.mat', genes = genes335, adj = gene_coex_wb)
+save(genes_final,gene_coex_wb,p.gene_coex_wb,wb_heat,file = './whole_brain.RData')
+genes_final.ro <-genes_final[wb_heat$rowInd]
+writeMat('./whole_brain.mat', genes = genes_final, adj = gene_coex_wb, order = wb_heat$rowInd)
+
+## save the plot
+plotname <- './Figures/wb_adj.pdf'
+pdf(file = plotname, width = 6, height = 6,useDingbats=F)
+print(p.gene_coex_wb)
+dev.off()
+
 
 
 #for each donor
 gene_coex_single = NULL
 for (donor in donor_list){
-  mat <- make_coex_graph(genes335,genes_donor[[donor]]$exp,"pearson")
-  plot <- plot_coex_graph(donor,genes335,mat,wb_heat$rowInd)
+  mat <- make_coex_graph(genes_final,genes_donor[[donor]]$exp,"pearson")
+  plot <- plot_coex_graph(donor,genes_final,mat,wb_heat$rowInd)
   gene_coex_single[[donor]] = list(mat = mat, plot = plot)
 }
 save(gene_coex_single,wb_heat,file = './single_brains.RData')
+for (donor in donor_list){
+  plotname <- paste('./Figures/',donor,'_adj.pdf',sep="")
+  pdf(file = plotname, width = 6, height = 6,useDingbats=F)
+  print(gene_coex_single[[donor]]$plot)
+  dev.off()
+}
+
+#histogram
+
 
 #for each donor
 structure_IDs = NULL
@@ -92,8 +108,13 @@ write.csv(structures, file = './structures_list.csv',row.names = FALSE)
 
 
 
-powers = 1:20
-soft_in = pickSoftThreshold(t(datExprIn),networkType="signed",powerVector=powers)
+
+
+
+
+
+powers = 1:10
+soft_in = pickSoftThreshold(t(genes_all),networkType="unsigned",powerVector=powers,moreNetworkConcepts = T)
 cex1 = 0.9
 plot(soft_in$fitIndices[,1], -sign(soft_in$fitIndices[,3])*soft_in$fitIndices[,2],
      xlab="Soft Threshold (power)",ylab="Scale Free Topology Model Fit,signed R^2",type="n",
@@ -101,7 +122,7 @@ plot(soft_in$fitIndices[,1], -sign(soft_in$fitIndices[,3])*soft_in$fitIndices[,2
 text(soft_in$fitIndices[,1], -sign(soft_in$fitIndices[,3])*soft_in$fitIndices[,2],
      labels=powers,cex=cex1,col="red");
 abline(h=0.80,col="red")
-thresholdPower_in = 15
+thresholdPower_in = 7
 
 net_in = blockwiseModules(t(datExprIn),power=thresholdPower_in,networkType="signed")
 dissTOM = 1-TOMsimilarityFromExpr(datExprIn, power = thresholdPower_in)
