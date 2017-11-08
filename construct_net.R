@@ -31,6 +31,17 @@ genes_trans[genes %in% as.character(gene_out_dict$nature)] <- as.character(gene_
 genes_final <- unique(unname(genes_trans[-which(genes_trans =="")]))
 
 save(genes_final,file = './gene_list_final.RData')
+write.csv(genes_final,file = './gene_list_final.csv')
+
+
+genes_final[genes_final %in% as.character(gene_out_dict$ALAN)] <- gene_out_dict$nature[which(gene_out_dict$ALAN!="")]
+genes_final_chrome= NULL
+for (gene in genes_final){
+  i = which(genes_final == gene)
+  chrom <- nature108loci[which(nature108loci == gene , arr.ind = TRUE)[1],'chromosome']
+  genes_final_chrome$genes[i] = gene
+  genes_final_chrome$chrom[i] = chrom
+}
 
 ##############################################
 ##### Load and Compile PreprocessedData ######

@@ -95,3 +95,25 @@ plot_coex_graph <- function(donor,geneList,coex_graph,idx){
 }
 
 
+get_structures <- function(marker_number){
+  strc_TF_lables <- sapply(ont.parse,function(x) marker_number %in% x) 
+  strc_names <- ontology[strc_TF_lables,]
+}
+
+get_AP_structures<-function(sample_info) {
+  mni_y_min <- round(min(sample_info$mni_y))
+  mni_y_max <- round(max(sample_info$mni_y))
+  y_window <- 10
+  lower_bound_y <- mni_y_min
+  upper_bound_y <- mni_y_min
+  AP_strucutres <- NULL
+  y_index <- 1
+  while (upper_bound_y <= mni_y_max){
+    upper_bound_y <- lower_bound_y + y_window
+    samples_in_window <- which(sample_info$mni_y >= lower_bound_y & sample_info$mni_y <= upper_bound_y )
+    AP_strucutres[[y_index]] <- samples_in_window
+    lower_bound_y <- lower_bound_y + 1
+    y_index <- y_index + 1
+  }
+  return(AP_strucutres)
+}
